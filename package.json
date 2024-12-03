@@ -19,5 +19,6 @@
   "bugs": {
     "url": "https://github.com/DiegoFleitas/diegos-fly-logger/issues"
   },
-  "homepage": "https://github.com/DiegoFleitas/diegos-fly-logger#readme"
+  "homepage": "https://github.com/DiegoFleitas/diegos-fly-logger#readme",
+  "private": true
 }
