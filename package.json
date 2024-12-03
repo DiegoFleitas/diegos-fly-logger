@@ -1,0 +1,23 @@
+{
+  "name": "diegos-fly-logger",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DiegoFleitas/diegos-fly-logger.git"
+  },
+  "keywords": [
+    "fly",
+    "logger"
+  ],
+  "author": "Diego Fleitas",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/DiegoFleitas/diegos-fly-logger/issues"
+  },
+  "homepage": "https://github.com/DiegoFleitas/diegos-fly-logger#readme"
+}
