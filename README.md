@@ -11,6 +11,8 @@
 On an express app
 
 ```js
+import { logging } from 'diegos-fly-logger/index.mjs';
+
 app.use(logging);
 ```
 
