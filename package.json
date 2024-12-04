@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DiegoFleitas/diegos-fly-logger.git"
+    "url": "https://github.com/DiegoFleitas/diegos-fly-logger.git"
   },
   "keywords": [
     "fly",
@@ -19,6 +19,5 @@
   "bugs": {
     "url": "https://github.com/DiegoFleitas/diegos-fly-logger/issues"
   },
-  "homepage": "https://github.com/DiegoFleitas/diegos-fly-logger#readme",
-  "private": true
+  "homepage": "https://github.com/DiegoFleitas/diegos-fly-logger#readme"
 }
