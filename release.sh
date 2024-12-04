@@ -16,6 +16,9 @@ git checkout develop
 # Pull the latest changes from the develop branch
 git pull
 
+# Pull the latest changes from the main branch into develop
+git pull origin main
+
 # Check if the release/release-candidate branch exists
 if git show-ref --quiet refs/heads/release/release-candidate; then
   # Check out the release/release-candidate branch
