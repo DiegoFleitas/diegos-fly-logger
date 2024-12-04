@@ -13,3 +13,7 @@ PRETTIFY_LOGS env var
 On an express app
 
 app.use(logging);
+
+ ### Releases
+
+$ sh release.sh <ver>
