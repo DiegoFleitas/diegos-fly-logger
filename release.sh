@@ -10,10 +10,10 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
-# Check out the main branch
-git checkout main
+# Check out the develop branch
+git checkout develop
 
-# Pull the latest changes from the main branch
+# Pull the latest changes from the develop branch
 git pull
 
 # Check if the release/release-candidate branch exists
@@ -21,12 +21,12 @@ if git show-ref --quiet refs/heads/release/release-candidate; then
   # Check out the release/release-candidate branch
   git checkout release/release-candidate
 else
-  # Create the release/release-candidate branch from main
-  git checkout -b release/release-candidate main
+  # Create the release/release-candidate branch from develop
+  git checkout -b release/release-candidate develop
 fi
 
-# Merge the main branch into the release/release-candidate branch
-git merge main
+# Merge the develop branch into the release/release-candidate branch
+git merge develop
 
 # Check out a new branch called release/release-candidate-$1
 git checkout -b release/release-candidate-"$1"
