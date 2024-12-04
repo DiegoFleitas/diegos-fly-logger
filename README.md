@@ -1,8 +1,6 @@
 ### Requirements
 
-- `dotenv`
-- `morgan`
-- `ua-parser-js`
+- express
 
 ### Configuration
 
