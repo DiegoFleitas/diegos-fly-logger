@@ -1,6 +1,7 @@
 {
   "name": "diegos-fly-logger",
-  "version": "0.0.8",
+  "type": "module",
+  "version": "0.0.9",
   "description": "",
   "main": "index.js",
   "scripts": {
