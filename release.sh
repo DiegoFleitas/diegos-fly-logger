@@ -16,8 +16,14 @@ git checkout main
 # Pull the latest changes from the main branch
 git pull
 
-# Check out the release/release-candidate branch
-git checkout release/release-candidate
+# Check if the release/release-candidate branch exists
+if git show-ref --quiet refs/heads/release/release-candidate; then
+  # Check out the release/release-candidate branch
+  git checkout release/release-candidate
+else
+  # Create the release/release-candidate branch from main
+  git checkout -b release/release-candidate main
+fi
 
 # Merge the main branch into the release/release-candidate branch
 git merge main
