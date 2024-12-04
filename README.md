@@ -10,6 +10,10 @@
 
 On an express app
 
+create an .npmrc file with
+
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+
 ```js
 import { logging } from 'diegos-fly-logger/index.mjs';
 
