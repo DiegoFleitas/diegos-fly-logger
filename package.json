@@ -2,10 +2,12 @@
   "name": "diegos-fly-logger",
   "type": "module",
   "version": "0.0.9",
-  "description": "",
-  "main": "index.js",
+  "description": "A logging middleware for Express applications",
+  "main": "index.mjs",
   "scripts": {
-    "test": "test"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo \"Building the project...\"",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -13,7 +15,10 @@
   },
   "keywords": [
     "fly",
-    "logger"
+    "logger",
+    "express",
+    "middleware",
+    "logging"
   ],
   "author": "Diego Fleitas",
   "license": "GPL-3.0-or-later",
