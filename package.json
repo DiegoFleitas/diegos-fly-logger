@@ -1,7 +1,7 @@
 {
   "name": "diegos-fly-logger",
   "type": "module",
-  "version": "0.0.9",
+  "version": "1.0.0",
   "description": "A logging middleware for Express applications",
   "main": "index.mjs",
   "scripts": {
