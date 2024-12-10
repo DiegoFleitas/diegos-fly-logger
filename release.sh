@@ -16,8 +16,8 @@ git checkout develop
 # Pull the latest changes from the develop branch
 git pull
 
-# Pull the latest changes from the main branch into develop
-git pull origin main
+# Rebase the latest changes from the main branch into develop
+git rebase origin/main
 
 # Check if the release/release-candidate branch exists
 if git show-ref --quiet refs/heads/release/release-candidate; then
@@ -28,8 +28,8 @@ else
   git checkout -b release/release-candidate develop
 fi
 
-# Merge the develop branch into the release/release-candidate branch
-git merge develop
+# Rebase the develop branch into the release/release-candidate branch
+git rebase develop
 
 # Check out a new branch called release/release-candidate-$1
 git checkout -b release/release-candidate-"$1"
