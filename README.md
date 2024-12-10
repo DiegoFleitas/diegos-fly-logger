@@ -6,16 +6,19 @@
 
 `PRETTIFY_LOGS` env var
 
+
 ### Installation
 
-On an express app
+On an express app, install the package from npm:
 
-create an .npmrc file with
+```sh
+npm install diegos-fly-logger
+```
 
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+Then, use it in your application:
 
 ```js
-import { logging } from 'diegos-fly-logger/index.mjs';
+import { logging } from 'diegos-fly-logger';
 
 app.use(logging);
 ```
