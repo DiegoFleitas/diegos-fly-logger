@@ -37,8 +37,5 @@ git checkout -b release/release-candidate-"$1"
 # Set the version to $1 using npm version
 npm version "$1" -m "Release v$1"
 
-# Push the new release/release-candidate-$1 branch to origin
-git push origin release/release-candidate-"$1"
-
-# Push the tags to origin
-git push origin --tags
+# Push the new release/release-candidate-$1 branch to origin along with tags
+git push origin release/release-candidate-"$1" --tags
