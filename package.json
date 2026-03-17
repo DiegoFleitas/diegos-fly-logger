@@ -1,11 +1,11 @@
 {
   "name": "diegos-fly-logger",
   "type": "module",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A logging middleware for Express applications",
   "main": "index.mjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"No tests\"",
     "build": "echo \"Building the project...\"",
     "prepublishOnly": "npm run build"
   },
