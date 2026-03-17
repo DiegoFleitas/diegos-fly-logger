@@ -1,6 +1,6 @@
 ### Requirements
 
-- express
+- express / fastify
 
 ### Configuration
 
