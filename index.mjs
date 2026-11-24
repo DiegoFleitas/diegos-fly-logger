@@ -36,6 +36,19 @@ const normalizeFieldName = (name) =>
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "");
 
+// Header-derived values (user agent, request ids) are attacker-controlled free
+// text. Cap their size and drop control characters so they cannot forge extra
+// log lines or inflate a record.
+const MAX_HEADER_FIELD_LENGTH = 256;
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f\u2028\u2029]/g;
+const sanitizeHeaderField = (value) => {
+    if (typeof value !== "string") return value ?? null;
+    const cleaned = value.replace(CONTROL_CHARACTERS, "");
+    return cleaned.length > MAX_HEADER_FIELD_LENGTH
+        ? `${cleaned.slice(0, MAX_HEADER_FIELD_LENGTH)}...[TRUNCATED]`
+        : cleaned;
+};
+
 const sensitiveFieldNames = new Set(
     [
         ...DEFAULT_SENSITIVE_FIELDS,
@@ -208,7 +221,10 @@ const getPayloadFields = (payload) => {
     };
 
     if (typeof payload === "object" && payload !== null && !Array.isArray(payload)) {
-        fields.payload_keys = Object.keys(payload);
+        // Field *names* are metadata too: `access_token` must not show up as a key.
+        fields.payload_keys = Object.keys(payload).filter(
+            (keyName) => !isSensitiveFieldName(keyName)
+        );
     }
 
     if (requestBodyEnabled) {
@@ -263,17 +279,17 @@ morgan.format("json", function (tokens, req, res) {
         level: logLevel,
         msg: `${method || "UNKNOWN"} ${url || ""} -> ${status || statusCode} (${responseTime || "0"}ms)`,
         ip,
-        user_agent: userAgent,
+        user_agent: sanitizeHeaderField(userAgent),
         browser,
         os,
         is_bot: isBot,
         method,
         url,
         status,
-        content_type: contentType,
+        content_type: sanitizeHeaderField(contentType),
         response_time: responseTime,
         session_id: sessionId,
-        request_id: requestId,
+        request_id: sanitizeHeaderField(requestId),
         service_name: serviceName,
         environment,
         ...payloadFields,

@@ -1,66 +1,100 @@
-# Publishes the package to npm, only from a reviewed release tag.
+# Publishes the package to npm, only from a published GitHub Release whose tag
+# points at a commit already on `main`.
 #
-# Hardening notes (see PR body for finding IDs):
-# - FL-01: the unreviewed `workflow_dispatch` publish route was removed; publishing
-#   now requires a published GitHub Release (which checks out the tag ref), plus a
-#   protected `npm-publish` environment and a tag/version match assertion.
-# - FL-02: the publish job installs nothing, so no dependency lifecycle script can
-#   run while the npm token is in the environment.
-# - FL-03: OIDC `id-token: write` + `npm publish --provenance`.
+# Hardening map (finding IDs):
+# - FL-01: the only trigger is a published (non-pre-release) `v*` tag on `main`;
+#   the job runs in the `npm-production` environment, which must be configured
+#   with required reviewers (owner action, see the PR body); permissions are
+#   least-privilege (`contents: read`, plus `id-token: write` on the publish job).
+# - FL-02: no long-lived npm token exists anywhere in this workflow. Installing,
+#   testing and auditing run in a job with no secret and no `id-token: write`; the
+#   publish job authenticates with npm trusted publishing (OIDC) only.
+# - FL-03: `id-token: write` + `npm publish --provenance` (and
+#   `publishConfig.provenance` in package.json) attach a signed provenance
+#   attestation; the repository is public and `repository` metadata is correct.
 # - FL-04: every action is pinned to a full 40-character commit SHA.
 # - FL-05: dependencies are installed from the committed pnpm lockfile with
-#   `--frozen-lockfile`.
-# - FL-08: a dependency audit gate runs before anything can publish.
+#   `--frozen-lockfile --ignore-scripts`; there is no `npm install` anywhere.
+# - FL-08: `pnpm audit --prod --audit-level=high` gates the release before publish.
 
-name: Node.js Package
+name: Publish to npm
 
 on:
   release:
-    types: [created]
+    types: [published]
 
 permissions:
   contents: read
 
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
+  verify:
+    name: Verify release candidate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - name: Check out the release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          node-version: 20
-      - name: Enable pnpm from the declared packageManager
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+      - name: Enable the pinned package manager
         run: corepack enable
       - name: Install from the frozen lockfile without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Test
         run: pnpm test
-      - name: Audit production dependencies
+      - name: Audit dependencies, failing on High and Critical
         run: pnpm audit --prod --audit-level=high
 
-  publish-npm:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+  publish:
+    name: Publish to npm
+    needs: verify
+    if: ${{ !github.event.release.prerelease && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
-    environment: npm-publish
+    environment:
+      name: npm-production
+      url: https://www.npmjs.com/package/diegos-fly-logger
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - name: Check out the release tag with full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org/
-      - name: Verify the release tag matches the package version
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+      - name: Install an npm CLI that supports trusted publishing
+        # No dependency from this repository is installed while any credential
+        # is in scope; this only replaces the npm CLI itself.
+        run: npm install --global npm@11.5.1
+      - name: Assert the release tag was created from a commit on main
         run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Refusing to publish: $GITHUB_SHA is not an ancestor of origin/main" >&2
+            exit 1
+          fi
+      - name: Assert the release tag matches the package version
+        run: |
+          set -euo pipefail
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
           if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
             echo "Tag $GITHUB_REF_NAME does not match package.json version $PACKAGE_VERSION" >&2
             exit 1
           fi
-      - name: Publish with provenance
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+      - name: Publish with provenance over OIDC (no token)
+        run: npm publish --provenance --access public --ignore-scripts
