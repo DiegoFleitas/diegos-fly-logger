@@ -11,9 +11,8 @@
   ],
   "packageManager": "pnpm@11.5.0",
   "scripts": {
-    "test": "echo \"No tests\"",
-    "build": "echo \"Building the project...\"",
-    "prepublishOnly": "pnpm run build"
+    "test": "node --test",
+    "build": "echo \"Building the project...\""
   },
   "repository": {
     "type": "git",
