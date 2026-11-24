@@ -2,7 +2,8 @@
 #
 # Hardening map (finding IDs):
 # - FL-05: the committed pnpm lockfile is authoritative (`--frozen-lockfile`),
-#   lifecycle scripts are disabled at install time; no `npm install` anywhere.
+#   lifecycle scripts are disabled at install time; no repository dependency is
+#   ever installed with npm.
 # - FL-08: `pnpm audit --audit-level=high` is a real gate: it exits non-zero on
 #   High/Critical advisories and runs on every PR before review.
 # - FL-04: every action is pinned to a full 40-character commit SHA.

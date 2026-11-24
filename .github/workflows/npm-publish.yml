@@ -8,13 +8,17 @@
 #   least-privilege (`contents: read`, plus `id-token: write` on the publish job).
 # - FL-02: no long-lived npm token exists anywhere in this workflow. Installing,
 #   testing and auditing run in a job with no secret and no `id-token: write`; the
-#   publish job authenticates with npm trusted publishing (OIDC) only.
+#   publish job authenticates with npm trusted publishing (OIDC) only. The npm CLI
+#   used for publishing is downloaded as one exact tarball whose SHA-512 is pinned
+#   in this file and verified before the CLI is installed, so no unpinned tool
+#   download happens inside the `id-token: write` job.
 # - FL-03: `id-token: write` + `npm publish --provenance` (and
 #   `publishConfig.provenance` in package.json) attach a signed provenance
 #   attestation; the repository is public and `repository` metadata is correct.
 # - FL-04: every action is pinned to a full 40-character commit SHA.
 # - FL-05: dependencies are installed from the committed pnpm lockfile with
-#   `--frozen-lockfile --ignore-scripts`; there is no `npm install` anywhere.
+#   `--frozen-lockfile --ignore-scripts`; no repository dependency is ever
+#   installed with npm (the only `npm install` is the verified npm CLI tarball).
 # - FL-08: `pnpm audit --prod --audit-level=high` gates the release before publish.
 
 name: Publish to npm
@@ -75,10 +79,36 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-      - name: Install an npm CLI that supports trusted publishing
-        # No dependency from this repository is installed while any credential
-        # is in scope; this only replaces the npm CLI itself.
-        run: npm install --global npm@11.5.1
+      - name: Install a pinned, integrity-verified npm CLI (trusted publishing)
+        # FL-02: the npm CLI is one exact tarball pinned by version *and* SHA-512
+        # in this step; the digest is checked before anything is installed, so a
+        # tampered or swapped tarball aborts the job. No repository dependency is
+        # installed here, no lifecycle script runs, and no credential is read.
+        env:
+          NPM_CLI_VERSION: 11.5.1
+          NPM_CLI_INTEGRITY: sha512-Iy5vXZ55m8tIaSCz6bqQf9+W5XbPfoyURsgWLjOkFglqHTep6RDZqRj2sfYGeRyZvGu2HuJWm0lux0rxPQ29lQ==
+        run: |
+          set -euo pipefail
+          TARBALL="${RUNNER_TEMP}/npm-${NPM_CLI_VERSION}.tgz"
+          curl --silent --show-error --fail --location \
+            --proto '=https' --tlsv1.2 \
+            --output "${TARBALL}" \
+            "https://registry.npmjs.org/npm/-/npm-${NPM_CLI_VERSION}.tgz"
+          ACTUAL_INTEGRITY="sha512-$(openssl dgst -sha512 -binary "${TARBALL}" | openssl base64 -A)"
+          if [ "${ACTUAL_INTEGRITY}" != "${NPM_CLI_INTEGRITY}" ]; then
+            echo "npm CLI tarball integrity mismatch" >&2
+            echo "  expected: ${NPM_CLI_INTEGRITY}" >&2
+            echo "  actual:   ${ACTUAL_INTEGRITY}" >&2
+            exit 1
+          fi
+          echo "verified npm-${NPM_CLI_VERSION}.tgz ${ACTUAL_INTEGRITY}"
+          npm install --global --ignore-scripts --no-audit --no-fund "${TARBALL}"
+          INSTALLED_NPM_VERSION="$(npm --version)"
+          if [ "${INSTALLED_NPM_VERSION}" != "${NPM_CLI_VERSION}" ]; then
+            echo "Expected npm ${NPM_CLI_VERSION}, got ${INSTALLED_NPM_VERSION}" >&2
+            exit 1
+          fi
+          echo "npm ${INSTALLED_NPM_VERSION} ready (trusted publishing supported)"
       - name: Assert the release tag was created from a commit on main
         run: |
           set -euo pipefail
