@@ -1,0 +1,48 @@
+# Pull-request and main-branch CI. No secrets, no publish, read-only token.
+#
+# Hardening map (finding IDs):
+# - FL-05: the committed pnpm lockfile is authoritative (`--frozen-lockfile`),
+#   lifecycle scripts are disabled at install time; no repository dependency is
+#   ever installed with npm.
+# - FL-08: `pnpm audit --audit-level=high` is a real gate: it exits non-zero on
+#   High/Critical advisories and runs on every PR before review.
+# - FL-04: every action is pinned to a full 40-character commit SHA.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test and audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+      - name: Enable the pinned package manager
+        run: corepack enable
+      - name: Install from the frozen lockfile without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Test
+        run: pnpm test
+      - name: Audit dependencies, failing on High and Critical
+        run: pnpm audit --audit-level=high
