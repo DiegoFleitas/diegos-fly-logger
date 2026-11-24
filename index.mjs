@@ -1,9 +1,102 @@
 import morgan from "morgan";
 import uaParser from "ua-parser-js";
 import { config as dotenvConfig } from "dotenv";
+import { createHash } from "node:crypto";
 dotenvConfig();
 
 const DEFAULT_MAX_BYTES = 4096;
+const REDACTED_VALUE = "[REDACTED]";
+
+// Fields that must never reach a log record. Comparison is done on a normalized
+// form (lowercased, non-alphanumerics stripped) and matches the exact name or a
+// suffix, so `authorization`, `Authorization`, `x-api-key` and `userPassword`
+// are all caught.
+const DEFAULT_SENSITIVE_FIELDS = [
+    "authorization",
+    "cookie",
+    "setcookie",
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "apikey",
+    "clientsecret",
+    "privatekey",
+    "session",
+    "sessionid",
+    "creditcard",
+    "cardnumber",
+    "cvv",
+    "ssn",
+    "xapikey",
+];
+
+const normalizeFieldName = (name) =>
+    String(name ?? "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+
+const sensitiveFieldNames = new Set(
+    [
+        ...DEFAULT_SENSITIVE_FIELDS,
+        ...(process.env.LOG_REDACT_FIELDS || "").split(","),
+    ]
+        .map(normalizeFieldName)
+        .filter(Boolean)
+);
+
+const isSensitiveFieldName = (name) => {
+    const normalizedName = normalizeFieldName(name);
+    if (!normalizedName) return false;
+    if (sensitiveFieldNames.has(normalizedName)) return true;
+    for (const sensitiveName of sensitiveFieldNames) {
+        if (normalizedName.endsWith(sensitiveName)) return true;
+    }
+    return false;
+};
+
+const redactSensitiveFields = (value, depth = 0) => {
+    if (value == null || depth > 10) return value;
+    if (Array.isArray(value)) {
+        return value.map((item) => redactSensitiveFields(item, depth + 1));
+    }
+    if (typeof value !== "object") return value;
+
+    const redacted = {};
+    for (const [key, entryValue] of Object.entries(value)) {
+        redacted[key] = isSensitiveFieldName(key)
+            ? REDACTED_VALUE
+            : redactSensitiveFields(entryValue, depth + 1);
+    }
+    return redacted;
+};
+
+const redactUrlQuery = (url) => {
+    if (typeof url !== "string" || !url.includes("?")) return url;
+
+    try {
+        const parsedUrl = new URL(url, "http://localhost");
+        let didRedact = false;
+        for (const queryKey of [...parsedUrl.searchParams.keys()]) {
+            if (isSensitiveFieldName(queryKey)) {
+                parsedUrl.searchParams.set(queryKey, REDACTED_VALUE);
+                didRedact = true;
+            }
+        }
+        if (!didRedact) return url;
+        return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    } catch {
+        return url;
+    }
+};
+
+// Session identifiers are pseudonymized rather than dropped so that requests can
+// still be correlated for debugging without exposing a usable session token.
+const hashSessionId = (sessionId) => {
+    if (sessionId == null) return null;
+    return createHash("sha256").update(String(sessionId)).digest("hex").slice(0, 16);
+};
+
 const requestBodyEnabled = process.env.LOG_REQUEST_BODY === "1";
 const sentry5xxEnabled = process.env.SENTRY_CAPTURE_HTTP_5XX === "true";
 const legacyFormatEnabled = process.env.LOG_LEGACY_FORMAT === "true";
@@ -147,17 +240,20 @@ morgan.format("json", function (tokens, req, res) {
     const os = tokens.os ? tokens.os(req, res) : null;
     const isBot = tokens.bot ? tokens.bot(req, res) : null;
     const method = tokens.method ? tokens.method(req, res) : req.method;
-    const url = tokens.url ? tokens.url(req, res) : req.url;
+    const rawUrl = tokens.url ? tokens.url(req, res) : req.url;
+    const url = redactUrlQuery(rawUrl);
     const status = tokens.status ? tokens.status(req, res) : res?.statusCode;
     const responseTime = tokens["response-time"]
         ? tokens["response-time"](req, res)
         : null;
     const requestId = tokens.requestId ? tokens.requestId(req, res) : null;
 
-    const sessionId = req?.session?.id ?? null;
-    const payload = req?.body ?? null;
+    const sessionId = hashSessionId(req?.session?.id ?? null);
+    const payload = redactSensitiveFields(req?.body ?? null);
     const contentType = req?.headers?.["content-type"] ?? null;
-    const extra = safeSerialize(req?.diegosFlyLoggerExtra ?? null, extraMaxBytes).value;
+    const extra = redactSensitiveFields(
+        safeSerialize(req?.diegosFlyLoggerExtra ?? null, extraMaxBytes).value
+    );
     const serviceName = process.env.LOG_SERVICE_NAME || process.env.FLY_APP_NAME || null;
     const environment = process.env.LOG_ENVIRONMENT || process.env.NODE_ENV || null;
 
@@ -218,3 +314,6 @@ morgan.format("json", function (tokens, req, res) {
 });
 
 export const logging = morgan("json");
+
+// Exported for tests and for hosts that want to reuse the same redaction policy.
+export { redactSensitiveFields, redactUrlQuery, hashSessionId };
