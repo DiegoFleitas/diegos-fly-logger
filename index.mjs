@@ -312,7 +312,7 @@ morgan.format("json", function (tokens, req, res) {
                     extra: {
                         status: status || statusCode,
                         url,
-                        request_id: requestId,
+                        request_id: sanitizeHeaderField(requestId),
                         response_time: responseTime,
                     },
                 });
