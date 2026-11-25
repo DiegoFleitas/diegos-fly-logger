@@ -39,6 +39,6 @@
   "dependencies": {
     "dotenv": "^18.0.10",
     "morgan": "^1.12.1",
-    "ua-parser-js": "^0.7.31"
+    "ua-parser-js": "^2.0.10"
   }
 }
